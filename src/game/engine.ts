@@ -653,6 +653,20 @@ export class Engine {
 
   private startPlan() {
     this.mode = "plan";
+    // Safety: re-sync every coin to the last resolve's final keyframe so no
+    // icon silently reverts to a stale position after the handoff screen.
+    if (this.resolve.coinKeys.length === 10) {
+      for (let gi = 0; gi < 10; gi++) {
+        const keys = this.resolve.coinKeys[gi];
+        const k = keys[keys.length - 1];
+        if (k) {
+          this.coins[gi].x = k.x;
+          this.coins[gi].y = k.y;
+          this.coins[gi].ax = k.x;
+          this.coins[gi].ay = k.y;
+        }
+      }
+    }
     // only the current planner starts with a clean sheet — the other
     // player's locked-in plan must survive until the simultaneous resolve
     this.plans[this.planner] = emptyPlan();
@@ -780,12 +794,13 @@ export class Engine {
           const dx = pos[j].x - pos[i].x;
           const dy = pos[j].y - pos[i].y;
           const d = Math.hypot(dx, dy);
-          const minD = R_COIN * 2;
+          const sameTeam = this.coins[i].team === this.coins[j].team;
+          const minD = R_COIN * 2 + (sameTeam ? 0 : 5); // 5px gap between rival edges
           if (d < minD && d > 0.001) {
             const nx = dx / d, ny = dy / d;
             const iFrozen = i === frozenGi, jFrozen = j === frozenGi;
             if (iFrozen || jFrozen) {
-              const push = minD - d; // the carrier is an immovable object
+              const push = minD - d;
               if (iFrozen) { pos[j].x += nx * push; pos[j].y += ny * push; }
               else { pos[i].x -= nx * push; pos[i].y -= ny * push; }
             } else {
@@ -1005,6 +1020,40 @@ export class Engine {
           if (d < 0.01) d = 0.01;
           const nx = dx / d, ny = dy / d;
           const push = (minSep - d) / 2 + 0.5;
+          const iFrozen = i === frozenGi, jFrozen = j === frozenGi;
+          if (iFrozen) { pos[j].x += nx * push * 2; pos[j].y += ny * push * 2; }
+          else if (jFrozen) { pos[i].x -= nx * push * 2; pos[i].y -= ny * push * 2; }
+          else {
+            pos[i].x -= nx * push; pos[i].y -= ny * push;
+            pos[j].x += nx * push; pos[j].y += ny * push;
+          }
+          for (const gi of [i, j]) {
+            if (gi === frozenGi) continue;
+            const c = this.coins[gi];
+            const ox = pos[gi].x - c.ax, oy = pos[gi].y - c.ay;
+            const od = Math.hypot(ox, oy);
+            if (od > c.orbit) { pos[gi].x = c.ax + (ox / od) * c.orbit; pos[gi].y = c.ay + (oy / od) * c.orbit; }
+            pos[gi].x = Math.min(Math.max(pos[gi].x, PITCH.l + R_COIN), PITCH.r - R_COIN);
+            pos[gi].y = Math.min(Math.max(pos[gi].y, PITCH.t + R_COIN), PITCH.b - R_COIN);
+          }
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+    // Rivals must also keep 5 px edge clearance at rest.
+    const RIVAL_MIN = R_COIN * 2 + 5;
+    for (let it = 0; it < 6; it++) {
+      let moved = false;
+      for (let i = 0; i < 10; i++) {
+        for (let j = i + 1; j < 10; j++) {
+          if (this.coins[i].team === this.coins[j].team) continue;
+          const dx = pos[j].x - pos[i].x, dy = pos[j].y - pos[i].y;
+          let d = Math.hypot(dx, dy);
+          if (d >= RIVAL_MIN) continue;
+          if (d < 0.01) d = 0.01;
+          const nx = dx / d, ny = dy / d;
+          const push = (RIVAL_MIN - d) / 2 + 0.3;
           const iFrozen = i === frozenGi, jFrozen = j === frozenGi;
           if (iFrozen) { pos[j].x += nx * push * 2; pos[j].y += ny * push * 2; }
           else if (jFrozen) { pos[i].x -= nx * push * 2; pos[i].y -= ny * push * 2; }
@@ -1623,7 +1672,7 @@ export class Engine {
     c.lineWidth = 2.5;
     c.strokeRect(PITCH.l, PITCH.t, PITCH.r - PITCH.l, PITCH.b - PITCH.t);
     c.beginPath(); c.moveTo(PITCH_CX, PITCH.t); c.lineTo(PITCH_CX, PITCH.b); c.stroke();
-    c.beginPath(); c.arc(PITCH_CX, PITCH_CY, 80, 0, 7); c.stroke();
+    c.beginPath(); c.arc(PITCH_CX, PITCH_CY, 70, 0, 7); c.stroke();
     c.fillStyle = "rgba(240,250,244,0.85)";
     c.beginPath(); c.arc(PITCH_CX, PITCH_CY, 3, 0, 7); c.fill();
 
@@ -1767,6 +1816,20 @@ export class Engine {
     this.coins.forEach((cn, gi) => {
       if (cn.team !== team) return;
 
+      const active = this.drag?.kind === "move" && this.drag.coinIdx === gi;
+      const hov = this.hoverCoin === gi;
+      const selected = active || hov;
+
+      if (gi === lockedGi) {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time * 5);
+        c.globalAlpha = 0.55 + pulse * 0.35;
+        c.fillStyle = "#ffd23f";
+        c.fillText("HOLDER · DRAG COIN OR BALL TO PASS ▸", cn.ax, cn.ay + R_COIN + 17);
+        return;
+      }
+
+      if (!selected) return; // hide boundaries until the coin is selected
+
       // inner keep-out zone sits at the coin's projected resting spot
       const mv = plan.moves[cn.idx];
       const rp = mv ?? { x: cn.x, y: cn.y };
@@ -1787,18 +1850,8 @@ export class Engine {
       c.beginPath(); c.arc(rp.x, rp.y, cn.zone, 0, 7); c.stroke();
       c.setLineDash([]);
 
-      if (gi === lockedGi) {
-        const pulse = 0.5 + 0.5 * Math.sin(this.time * 5);
-        c.globalAlpha = 0.55 + pulse * 0.35;
-        c.fillStyle = "#ffd23f";
-        c.fillText("HOLDER · DRAG COIN OR BALL TO PASS ▸", cn.ax, cn.ay + R_COIN + 17);
-        return;
-      }
-
-      const active = this.drag?.kind === "move" && this.drag.coinIdx === gi;
-      const hov = this.hoverCoin === gi;
       // outer movement circle
-      c.globalAlpha = active ? 0.55 : hov ? 0.34 : 0.15;
+      c.globalAlpha = active ? 0.55 : 0.34;
       c.strokeStyle = col;
       c.setLineDash([4, 8]);
       c.lineWidth = active ? 2 : 1.4;

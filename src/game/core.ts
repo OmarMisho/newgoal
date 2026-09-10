@@ -91,16 +91,19 @@ export function formationSlotsWithRoles(f: Formation, team: Team): Slot[] {
   const n = f.rows.length;
   const slots: Slot[] = [];
   f.rows.forEach((count, i) => {
-    const frac = n === 1 ? 0.5 : 0.16 + (0.76 * i) / (n - 1);
+    // Attack row sits outside the centre circle (r=70) so passing lanes stay open.
+    // DEF_FRAC positions the back row near own goal; attackFrac puts the front
+    // row at CENTER_GAP pixels from the pitch midpoint (outside 70px circle + 35px coin + margin).
+    const DEF_FRAC = 0.16;
+    const CENTER_GAP = 120;
+    const attackFrac = (PITCH_CX - (PITCH.l + 30) - CENTER_GAP) / (HALF_W - 22);
+    const frac = n === 1 ? 0.5 : DEF_FRAC + ((attackFrac - DEF_FRAC) * i) / (n - 1);
     const dd = frac * (HALF_W - 42);
     const x = team === 0 ? PITCH.l + 30 + dd : PITCH.r - 30 - dd;
     const gap = Math.min(158, (PITCH.b - PITCH.t - 70) / count);
     const role: Role = i === 0 ? "def" : i === n - 1 ? "att" : "mid";
     for (let j = 0; j < count; j++) {
-      let y = PITCH_CY + (j - (count - 1) / 2) * gap;
-      // a coin dead on the centre spot sits around the centre circle instead —
-      // no head-on first clash in the middle of the park
-      if (Math.abs(y - PITCH_CY) < 1) y = PITCH_CY + (team === 0 ? -46 : 46);
+      const y = PITCH_CY + (j - (count - 1) / 2) * gap;
       slots.push({ x, y, role });
     }
   });
