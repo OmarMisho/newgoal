@@ -1006,54 +1006,19 @@ export class Engine {
       if (goal && st % 6 === 0) R.ballKeys.push({ t, x: bx, y: by });
     }
 
-    // RULE: teammates may crash freely, but at rest they must stay out of each
-    // other's inner keep-out circle (zone = half the movement circle).
+    // After clashes, keep a small 12px edge-to-edge gap between every pair
+    // of coins, whether they belong to the same team or opposing teams.
+    const REST_MIN_SEP = R_COIN * 2 + 12;
     for (let it = 0; it < 12; it++) {
       let moved = false;
       for (let i = 0; i < 10; i++) {
         for (let j = i + 1; j < 10; j++) {
-          if (this.coins[i].team !== this.coins[j].team) continue;
-          const minSep = Math.max(this.coins[i].zone, this.coins[j].zone);
           const dx = pos[j].x - pos[i].x, dy = pos[j].y - pos[i].y;
           let d = Math.hypot(dx, dy);
-          if (d >= minSep) continue;
+          if (d >= REST_MIN_SEP) continue;
           if (d < 0.01) d = 0.01;
           const nx = dx / d, ny = dy / d;
-          const push = (minSep - d) / 2 + 0.5;
-          const iFrozen = i === frozenGi, jFrozen = j === frozenGi;
-          if (iFrozen) { pos[j].x += nx * push * 2; pos[j].y += ny * push * 2; }
-          else if (jFrozen) { pos[i].x -= nx * push * 2; pos[i].y -= ny * push * 2; }
-          else {
-            pos[i].x -= nx * push; pos[i].y -= ny * push;
-            pos[j].x += nx * push; pos[j].y += ny * push;
-          }
-          for (const gi of [i, j]) {
-            if (gi === frozenGi) continue;
-            const c = this.coins[gi];
-            const ox = pos[gi].x - c.ax, oy = pos[gi].y - c.ay;
-            const od = Math.hypot(ox, oy);
-            if (od > c.orbit) { pos[gi].x = c.ax + (ox / od) * c.orbit; pos[gi].y = c.ay + (oy / od) * c.orbit; }
-            pos[gi].x = Math.min(Math.max(pos[gi].x, PITCH.l + R_COIN), PITCH.r - R_COIN);
-            pos[gi].y = Math.min(Math.max(pos[gi].y, PITCH.t + R_COIN), PITCH.b - R_COIN);
-          }
-          moved = true;
-        }
-      }
-      if (!moved) break;
-    }
-    // Rivals must also keep 5 px edge clearance at rest.
-    const RIVAL_MIN = R_COIN * 2 + 5;
-    for (let it = 0; it < 6; it++) {
-      let moved = false;
-      for (let i = 0; i < 10; i++) {
-        for (let j = i + 1; j < 10; j++) {
-          if (this.coins[i].team === this.coins[j].team) continue;
-          const dx = pos[j].x - pos[i].x, dy = pos[j].y - pos[i].y;
-          let d = Math.hypot(dx, dy);
-          if (d >= RIVAL_MIN) continue;
-          if (d < 0.01) d = 0.01;
-          const nx = dx / d, ny = dy / d;
-          const push = (RIVAL_MIN - d) / 2 + 0.3;
+          const push = (REST_MIN_SEP - d) / 2 + 0.3;
           const iFrozen = i === frozenGi, jFrozen = j === frozenGi;
           if (iFrozen) { pos[j].x += nx * push * 2; pos[j].y += ny * push * 2; }
           else if (jFrozen) { pos[i].x -= nx * push * 2; pos[i].y -= ny * push * 2; }
@@ -1341,13 +1306,20 @@ export class Engine {
         } else this.uiConfirmForm();
       } else if (this.net.active) {
         if (this.net.isHost) {
-          // resolve once the guest's plan is in, or after a short grace past the deadline
-          if (this.net.guestPlanIn || this.time >= this.modeUntil + 0.6) {
+          // Expiry automatically locks Player 1 too. Wait for Player 2's
+          // submitted locked plan, allowing a short network grace if needed.
+          this.net.hostLocked = true;
+          if (this.net.guestPlanIn && this.net.oppLocked) {
+            this.net.guestPlanIn = false;
+            this.net.oppLocked = false;
+            this.startResolve();
+          } else if (this.time >= this.modeUntil + 0.6) {
+            // If the guest never responds, resolve with the plan received so far.
             this.net.guestPlanIn = false;
             this.net.oppLocked = false;
             this.startResolve();
           }
-        } else this.lockPlan(); // ships the guest's orders at the deadline
+        } else this.lockPlan(); // auto-submit Player 2's plan at the deadline
       } else this.lockPlan();
     }
     if (this.mode === "roundIntro" && this.time >= this.modeUntil) this.nextSegment();
