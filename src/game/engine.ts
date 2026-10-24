@@ -1759,13 +1759,14 @@ export class Engine {
     const plan = this.plans[team];
     if (dist(aim, holder) < 20) { plan.pass = null; sfx.drop(); return; }
 
-    // Generous goal targeting check (Player 1 attacks Right PITCH.r, Player 2 attacks Left PITCH.l)
-    const isTargetingGoal =
-      (team === 0 && aim.x >= PITCH.r - 50 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 30) ||
-      (team === 1 && aim.x <= PITCH.l + 50 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 30);
+    // PLAYER 1 (team 0) ATTACKS RIGHT GOAL (PITCH.r)
+    // PLAYER 2 (team 1) ATTACKS LEFT GOAL (PITCH.l)
+    const isPlayer1Shooting = team === 0 && aim.x >= PITCH.r - 80 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 40;
+    const isPlayer2Shooting = team === 1 && aim.x <= PITCH.l + 80 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 40;
 
-    if (isTargetingGoal || insideGoalMouth(aim, team)) {
-      plan.pass = { target: goalMouthPoint(team, aim), kind: "goal" };
+    if (isPlayer1Shooting || isPlayer2Shooting || insideGoalMouth(aim, team)) {
+      const targetX = team === 0 ? PITCH.r + 20 : PITCH.l - 20;
+      plan.pass = { target: { x: targetX, y: aim.y }, kind: "goal" };
       sfx.kick();
       return;
     }

@@ -147,8 +147,8 @@ export function goalMouthPoint(team: Team, aim: Vec): Vec {
 
 export function insideGoalMouth(p: Vec, scoringTeam: Team): boolean {
   const gx = scoringTeam === 0 ? PITCH.r : PITCH.l;
-  const near = scoringTeam === 0 ? p.x > gx - 46 : p.x < gx + 46;
-  return near && Math.abs(p.y - PITCH_CY) < GOAL.half;
+  const near = scoringTeam === 0 ? p.x > gx - 80 : p.x < gx + 80;
+  return near && Math.abs(p.y - PITCH_CY) <= GOAL.half + 40;
 }
 
 /* ---------------- persistent settings ---------------- */
