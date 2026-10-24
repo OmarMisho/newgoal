@@ -984,9 +984,12 @@ export class Engine {
             bMode = "held"; bHolder = cutBy;
           }
         } else if (arrive) {
-          if (pass.kind === "goal") {
+          const crossedGoalLine =
+            (passerTeam === 0 && bx >= PITCH.r - 8 && Math.abs(by - PITCH_CY) <= GOAL.half + 10) ||
+            (passerTeam === 1 && bx <= PITCH.l + 8 && Math.abs(by - PITCH_CY) <= GOAL.half + 10);
+          if (pass.kind === "goal" || crossedGoalLine) {
             goal = passerTeam;
-            R.events.push({ t, type: "goal", x: pass.target.x, y: pass.target.y, team: passerTeam });
+            R.events.push({ t, type: "goal", x: bx, y: by, team: passerTeam });
             bMode = "loose"; bvx = 0; bvy = 0;
             bx = pass.target.x + (passerTeam === 0 ? 18 : -18); by = pass.target.y;
           } else if (pass.receiverId != null) {
@@ -1746,16 +1749,26 @@ export class Engine {
   private commitPass(team: Team, holder: Coin, aim: Vec) {
     const plan = this.plans[team];
     if (dist(aim, holder) < 20) { plan.pass = null; sfx.drop(); return; }
-    let mate = -1, bd = R_COIN + 34; // roomy snap radius for touch
+
+    // Generous goal targeting check (Player 1 attacks Right PITCH.r, Player 2 attacks Left PITCH.l)
+    const isTargetingGoal =
+      (team === 0 && aim.x >= PITCH.r - 50 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 30) ||
+      (team === 1 && aim.x <= PITCH.l + 50 && Math.abs(aim.y - PITCH_CY) <= GOAL.half + 30);
+
+    if (isTargetingGoal || insideGoalMouth(aim, team)) {
+      plan.pass = { target: goalMouthPoint(team, aim), kind: "goal" };
+      sfx.kick();
+      return;
+    }
+
+    let mate = -1, bd = R_COIN + 34;
     this.coins.forEach((c2, gi) => {
       if (c2.team !== team || c2 === holder) return;
       const d = dist(aim, c2);
       if (d < bd) { bd = d; mate = gi; }
     });
-    if (insideGoalMouth(aim, team)) {
-      plan.pass = { target: goalMouthPoint(team, aim), kind: "goal" };
-      sfx.kick();
-    } else if (mate >= 0) {
+
+    if (mate >= 0) {
       const m = this.coins[mate];
       plan.pass = { target: { x: m.x, y: m.y }, kind: "point", receiverId: mate };
       sfx.pick();
