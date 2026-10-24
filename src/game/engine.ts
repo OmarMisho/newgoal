@@ -1376,12 +1376,7 @@ export class Engine {
       return;
     }
 
-    // Record scorer so conceding team gets kickoff
-    this.lastGoalTeam = gt;
     this.tick = 0;
-    this.plans = [emptyPlan(), emptyPlan()];
-
-    // DIRECTLY open Strategy / Formation selection popup
     this.planner = 0;
     this.mode = "formPick";
     this.modeUntil = this.time + FORM_TIME;
