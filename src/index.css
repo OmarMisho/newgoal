@@ -28,6 +28,34 @@ body {
   width: 100%;
 }
 
+.ticker {
+  display: flex;
+  overflow: hidden;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ticker-track {
+  animation: ticker-scroll 18s linear infinite;
+  display: inline-flex;
+  gap: 2rem;
+  padding-right: 2rem;
+}
+
+.ticker-reverse .ticker-track {
+  animation-direction: reverse;
+  animation-duration: 22s;
+}
+
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
 input,
 button {
   font-family: inherit;
@@ -155,6 +183,8 @@ button {
 canvas.game-canvas {
   display: block;
   touch-action: none;
+  width: 100%;
+  height: 100%;
 }
 
 /* ---------- portrait-first layout ----------

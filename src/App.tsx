@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Capacitor } from "@capacitor/core";
 import { ScreenOrientation } from "@capacitor/screen-orientation";
 import { App as CapApp } from "@capacitor/app";
+import { Volume2, VolumeX, HelpCircle, LogOut, Check } from "lucide-react";
 import { Engine, type UiSnapshot, type Team } from "./game/engine";
 import { FORMATIONS, TEAM_COLOR, TICKS_PER_ROUND, SEG_SECS, WIN_GOALS, loadSettings, type Settings } from "./game/core";
 import { FLAGS, makeEmblem, flagById } from "./game/flags";
@@ -398,60 +399,172 @@ export default function App() {
   const inMatch = ["plan", "resolve", "handoff", "roundIntro", "goal", "roundEnd", "formPick"].includes(ui.mode);
   const pcol = TEAM_COLOR[ui.planner];
   const roundLeft = (TICKS_PER_ROUND - Math.min(ui.tick, TICKS_PER_ROUND)) * SEG_SECS;
+  const [showQuitModal, setShowQuitModal] = useState(false);
+  const [isMutedLocal, setIsMutedLocal] = useState(false);
 
   return (
     <div className="stage-bg w-full h-full overflow-hidden select-none">
       <div className="relative w-full h-full flex flex-col">
         <div className="portrait-top-space" aria-hidden />
-        <div className="relative flex-1 min-h-0 flex items-center justify-center">
-          <canvas ref={canvasRef} className="game-canvas" />
-        </div>
-
-        {/* ======= HUD ======= */}
         {inMatch && (
-          <div className="safe-area absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-            <div className="panel chamfer flex items-stretch gap-0 px-1 py-1">
-              {([0, 1] as Team[]).map((t) => (
-                <div key={t} className={`flex items-center gap-2 px-3 ${t === 1 ? "flex-row-reverse" : ""}`}>
-                  <FlagImg id={ui.flags[t]} size={34} ring={TEAM_COLOR[t]} />
-                  <div className={t === 1 ? "text-right" : ""}>
-                    <div className="font-disp text-sm leading-none" style={{ color: TEAM_COLOR[t] }}>
-                      P{t + 1} · {flagById(ui.flags[t]).tag}
-                    </div>
-                    <div className="flex gap-1.5 mt-1">
-                      {Array.from({ length: WIN_GOALS }).map((_, i) => (
-                        <span
-                          key={i}
-                          className="w-3.5 h-3.5 skew-x-[-14deg] inline-block"
-                          style={{ background: i < ui.scores[t] ? TEAM_COLOR[t] : "rgba(255,255,255,0.12)", boxShadow: i < ui.scores[t] ? `0 0 8px ${TEAM_COLOR[t]}` : "none" }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  {ui.ballTeam === t && (
-                    <span className="text-[9px] font-bold tracking-widest px-1.5 py-0.5" style={{ background: TEAM_COLOR[t], color: "#04121c" }}>
-                      BALL
-                    </span>
-                  )}
-                </div>
-              ))}
-              <div className="px-4 flex flex-col items-center justify-center border-x border-white/10 min-w-[92px]">
-                <div className="font-disp text-xl leading-tight text-white">
-                  {roundLeft}
-                  <span className="text-[11px] text-white/50">s</span>
-                </div>
-                <div className="flex gap-[3px] justify-center pb-1">
-                  {Array.from({ length: TICKS_PER_ROUND }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-1.5 skew-x-[-14deg]"
-                      style={{ background: i < ui.tick ? "#ffd23f" : "rgba(255,255,255,0.14)" }}
-                    />
-                  ))}
-                </div>
+          <div className="safe-area absolute top-20 left-0 right-0 z-20 pointer-events-none">
+            <div className="ticker bg-slate-950 border-y border-slate-800 text-[10px] font-semibold tracking-widest text-white/80">
+              <div className="ticker-track">
+                <span>{flagById(ui.flags[0]).tag} - {flagById(ui.flags[1]).tag} {ui.scores[0]} - {ui.scores[1]} • KICKOFF TACTICS • 12 x 10 SECONDS • NO STICKS - ALL COINS • COIN LEAGUE • </span>
+                <span>{flagById(ui.flags[0]).tag} - {flagById(ui.flags[1]).tag} {ui.scores[0]} - {ui.scores[1]} • KICKOFF TACTICS • 12 x 10 SECONDS • NO STICKS - ALL COINS • COIN LEAGUE • </span>
               </div>
             </div>
           </div>
+        )}
+        <div className="relative flex-1 min-h-0 w-full h-full flex items-center justify-center mt-56 sm:mt-60 px-1 py-0">
+          <canvas ref={canvasRef} className="game-canvas w-full h-full" style={{ maxHeight: 'calc(100dvh - 130px)' }} />
+        </div>
+        {inMatch && (
+          <div className="safe-area absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+            <div className="ticker bg-slate-950 border-y border-slate-800 text-[10px] font-semibold tracking-widest text-white/80">
+              <div className="ticker-track ticker-reverse">
+                <span>{flagById(ui.flags[0]).tag} - {flagById(ui.flags[1]).tag} {ui.scores[0]} - {ui.scores[1]} • FIRST TO {WIN_GOALS} • HIDDEN MOVES • CLASH • </span>
+                <span>{flagById(ui.flags[0]).tag} - {flagById(ui.flags[1]).tag} {ui.scores[0]} - {ui.scores[1]} • FIRST TO {WIN_GOALS} • HIDDEN MOVES • CLASH • </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======= HUD ======= */}
+        {inMatch && (
+          <header className="safe-area absolute top-0 left-1/2 -translate-x-1/2 z-40 w-full max-w-lg mx-auto px-2 pt-0.5 text-white select-none pointer-events-auto">
+            <div className="bg-slate-950 border border-slate-800 shadow-2xl rounded-b-xl px-1">
+            {/* 1. Top Utility Row */}
+            <div className="flex items-center justify-between px-1 mb-1">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/60 text-[11px] font-semibold text-slate-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>
+                  MATCH <strong className="text-emerald-400">{roundLeft}s</strong> / {TICKS_PER_ROUND * SEG_SECS}s
+                </span>
+              </div>
+
+              <div className="flex items-center gap-0.5 text-slate-400">
+                <button
+                  onClick={() => {
+                    const next = !isMutedLocal;
+                    setIsMutedLocal(next);
+                    setSoundEnabled(!next);
+                  }}
+                  className="p-1 hover:text-white rounded hover:bg-slate-800"
+                  title="Toggle sound"
+                >
+                  {isMutedLocal ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                </button>
+                <button
+                  onClick={() => eng().uiOpenHowto()}
+                  className="p-1 hover:text-white rounded hover:bg-slate-800"
+                  title="Rules / Help"
+                >
+                  <HelpCircle size={15} />
+                </button>
+                <button
+                  onClick={() => {
+                    sfx.click();
+                    setShowQuitModal(true);
+                  }}
+                  className="p-1 text-red-400 hover:text-red-300 rounded hover:bg-red-500/10 ml-1"
+                  title="Quit Match"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Scoreboard Card */}
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1 flex items-center justify-between shadow-md mb-1.5">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <FlagImg id={ui.flags[0]} size={28} ring={TEAM_COLOR[0]} />
+                <span className="font-semibold text-xs truncate max-w-[70px]" style={{ color: TEAM_COLOR[0] }}>
+                  P1 · {flagById(ui.flags[0]).tag}
+                </span>
+              </div>
+
+              <div className="text-base font-extrabold tracking-widest px-2 text-slate-100">
+                {ui.scores[0]} - {ui.scores[1]}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 flex-1 min-w-0">
+                {(ui.online ? ui.myTeam === 1 : ui.planner === 1) && (
+                  <span className="text-[9px] font-bold bg-sky-500/20 text-sky-400 px-1 py-0.5 rounded border border-sky-500/30">
+                    YOU
+                  </span>
+                )}
+                <span className="font-semibold text-xs truncate max-w-[70px] text-right" style={{ color: TEAM_COLOR[1] }}>
+                  P2 · {flagById(ui.flags[1]).tag}
+                </span>
+                <FlagImg id={ui.flags[1]} size={28} ring={TEAM_COLOR[1]} />
+              </div>
+            </div>
+
+            {/* 3. Turn & Lock-In Bar */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                <span>
+                  Turn {Math.min(ui.tick + 1, TICKS_PER_ROUND)}/{TICKS_PER_ROUND}
+                  {ui.mode === "plan" ? ": Plan player stretches." : ui.mode === "resolve" ? ": Clash resolving." : ": Match in play."}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {ui.mode === "plan" && (
+                  <div className="w-6 h-6 rounded-full border-2 border-red-500/80 flex items-center justify-center text-[10px] font-bold text-slate-200">
+                    {Math.max(0, Math.ceil(ui.planLeft))}
+                  </div>
+                )}
+                {ui.mode === "plan" && !ui.online && (
+                  <button
+                    onClick={() => eng().uiLock()}
+                    disabled={ui.awaiting}
+                    className={`px-3 py-1 rounded-md text-xs font-black tracking-wide flex items-center gap-1 transition-all ${
+                      ui.awaiting
+                        ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+                        : "bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-md active:scale-95"
+                    }`}
+                  >
+                    LOCK IN <Check size={14} className="stroke-[3]" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quit Confirmation Modal */}
+            {showQuitModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 max-w-xs w-full text-center space-y-3">
+                  <h3 className="font-bold text-sm text-slate-100">Exit Match?</h3>
+                  <p className="text-xs text-slate-400">Are you sure you want to quit? This will count as a forfeit.</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowQuitModal(false)}
+                      className="flex-1 py-1.5 text-xs rounded bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowQuitModal(false);
+                        if (ui.online) {
+                          if (typeof abandonOnline === "function") abandonOnline();
+                        } else {
+                          eng().uiToTitle();
+                        }
+                      }}
+                      className="flex-1 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-500 font-semibold"
+                    >
+                      Quit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            </div>
+          </header>
         )}
 
         {/* resolve caption */}
@@ -472,47 +585,7 @@ export default function App() {
           </div>
         )}
 
-        {/* planning panel — 10s timer + LOCK IN/CLEAR pinned to the top bar */}
-        {ui.mode === "plan" && (
-          <div className="safe-area absolute z-20 top-16 left-2 right-2 sm:left-auto sm:right-2 sm:w-auto flex flex-col gap-2">
-            <div className="panel chamfer px-3 py-2 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-disp text-[11px] leading-tight sm:text-sm" style={{ color: pcol }}>
-                  {ui.online ? `ORDERS · P${(ui.myTeam ?? 0) + 1}` : `P${ui.planner + 1} SECRET ORDERS`}
-                </div>
-                <div className="text-[8px] sm:text-[10px] tracking-wider sm:tracking-[0.2em] text-white/50 font-bold mt-0.5">
-                  SEG {Math.min(ui.tick + 1, TICKS_PER_ROUND)}/{TICKS_PER_ROUND}
-                  {ui.online && ui.oppLocked && <span className="text-[#3fd46d] ml-2">RIVAL LOCKED ✓</span>}
-                  {ui.online && ui.awaiting && <span className="text-[#ffd23f] flight-flash ml-2">SENT — SYNCING…</span>}
-                </div>
-              </div>
-              {ui.online && (ui.awaiting || ui.lockedIn) ? (
-                <div className="flex flex-col items-center justify-center px-2 py-1 panel chamfer-sm">
-                  <span className="font-disp text-sm text-[#ffd23f] flight-flash">● ● ●</span>
-                  <span className="text-[8px] tracking-[0.12em] text-white/55 font-bold text-center">
-                    {ui.oppLocked
-                      ? "CLASHING…"
-                      : ui.myTeam === 1
-                        ? "WAITING FOR CLASH"
-                        : "RIVAL IS PLANNING"}
-                  </span>
-                </div>
-              ) : (
-                <TimerRing left={ui.planLeft} total={ui.planTotal} size={54} />
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => eng().uiLock()} disabled={ui.awaiting}
-                className="btn-blade flex-1 sm:flex-none font-disp text-sm px-4 py-2 sm:px-7 text-[#04121c] disabled:opacity-40" style={{ background: "#ffd23f" }}>
-                {ui.awaiting ? "SENT ✓" : "LOCK IN ▸"}
-              </button>
-              <button onClick={() => eng().uiClearPlan()} disabled={ui.awaiting}
-                className="btn-blade flex-1 sm:flex-none font-disp text-[11px] px-4 py-2 sm:px-7 text-white/75 bg-[#12384c] disabled:opacity-40">
-                CLEAR
-              </button>
-            </div>
-          </div>
-        )}
+        {/* planning panel removed - handled by top HUD */}
 
         {/* online session chip */}
         {ui.online && (
@@ -965,13 +1038,16 @@ export default function App() {
           </Overlay>
         )}
 
-        {inMatch && (
-          <div className="safe-area absolute top-1.5 right-2 z-10">
+        {inMatch && !showQuitModal && (
+          <div className="safe-area absolute top-16 right-2 z-10 pointer-events-auto">
             <button
-              onClick={() => { sfx.click(); if (ui.online) abandonOnline(); else eng().uiToTitle(); }}
-              className="btn-blade text-[10px] font-bold tracking-widest px-3 py-1 bg-[#12384c] text-white/60 hover:text-white"
+              onClick={() => {
+                sfx.click();
+                setShowQuitModal(true);
+              }}
+              className="btn-blade text-[10px] font-bold tracking-widest px-2.5 py-0.5 bg-[#12384c] text-white/60 hover:text-white inline-flex items-center gap-1"
             >
-              ✕ QUIT
+              <LogOut size={12} /> QUIT
             </button>
           </div>
         )}
