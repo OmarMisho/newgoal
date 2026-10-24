@@ -956,44 +956,38 @@ export class Engine {
         }
         R.ballKeys.push({ t, x: bx, y: by });
       } else if (bMode === "flight" && pass && bFrom && bTo) {
-        // glide over the coins' travel window — lands the instant the receiver stops
         const span = Math.max(0.05, MOVE_DUR - bT0);
         let f = (t - bT0) / span;
         f = Math.min(1, Math.max(0, f));
         bx = bFrom.x + (bTo.x - bFrom.x) * f;
         by = bFrom.y + (bTo.y - bFrom.y) * f;
         const arrive = f >= 1;
-        // defenders on the lane cut the ball
-        let cutBy = -1;
-        for (let gi = 0; gi < 10; gi++) {
-          if (this.coins[gi].team === passerTeam) continue;
-          if (Math.hypot(pos[gi].x - bx, pos[gi].y - by) < R_COIN + R_BALL + 2) { cutBy = gi; break; }
-        }
-        if (cutBy >= 0) {
-          if (pass.kind === "goal") {
-            const def = this.coins[cutBy];
-            this.stats[def.team].blocks++;
-            R.events.push({ t, type: "save", x: bx, y: by, team: def.team });
-            bMode = "loose";
-            const away = passerTeam === 0 ? -1 : 1;
-            bvx = away * (240 + Math.random() * 120);
-            bvy = (Math.random() - 0.5) * 320;
-          } else {
-            const def = this.coins[cutBy];
-            this.stats[def.team].interceptions++;
-            R.events.push({ t, type: "intercept", x: bx, y: by, team: def.team });
-            bMode = "held"; bHolder = cutBy;
-          }
-        } else if (arrive) {
-          // If the ball reached Player 2's goal line (Right) or Player 1's goal line (Left):
-          const inP2Goal = (passerTeam === 0 && bx >= PITCH.r - 20 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
-          const inP1Goal = (passerTeam === 1 && bx <= PITCH.l + 20 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
 
-          if (pass.kind === "goal" || inP2Goal || inP1Goal) {
+        // Check if ball crossed Player 2's goal line (Right) or Player 1's goal line (Left)
+        const crossedP2Goal = (passerTeam === 0 && bx >= PITCH.r - 15 && Math.abs(by - PITCH_CY) <= GOAL.half + 12);
+        const crossedP1Goal = (passerTeam === 1 && bx <= PITCH.l + 15 && Math.abs(by - PITCH_CY) <= GOAL.half + 12);
+
+        // Defenders only cut regular passes; a shot on goal goes into the net!
+        let cutBy = -1;
+        if (pass.kind !== "goal" && !crossedP2Goal && !crossedP1Goal) {
+          for (let gi = 0; gi < 10; gi++) {
+            if (this.coins[gi].team === passerTeam) continue;
+            if (Math.hypot(pos[gi].x - bx, pos[gi].y - by) < R_COIN + R_BALL) { cutBy = gi; break; }
+          }
+        }
+
+        if (cutBy >= 0) {
+          const def = this.coins[cutBy];
+          this.stats[def.team].interceptions++;
+          R.events.push({ t, type: "intercept", x: bx, y: by, team: def.team });
+          bMode = "held"; bHolder = cutBy;
+        } else if (arrive || crossedP2Goal || crossedP1Goal) {
+          if (pass.kind === "goal" || crossedP2Goal || crossedP1Goal) {
+            // GOAL SCORED!
             goal = passerTeam;
             R.events.push({ t, type: "goal", x: bx, y: by, team: passerTeam });
             bMode = "loose"; bvx = 0; bvy = 0;
-            bx = passerTeam === 0 ? PITCH.r + 16 : PITCH.l - 16;
+            bx = passerTeam === 0 ? PITCH.r + 20 : PITCH.l - 20;
             by = pass.target.y;
           } else if (pass.receiverId != null) {
             if (!forcedPass) this.stats[passerTeam].completed++;
