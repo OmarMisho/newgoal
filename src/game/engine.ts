@@ -984,14 +984,16 @@ export class Engine {
             bMode = "held"; bHolder = cutBy;
           }
         } else if (arrive) {
-          const crossedGoalLine =
-            (passerTeam === 0 && bx >= PITCH.r - 8 && Math.abs(by - PITCH_CY) <= GOAL.half + 10) ||
-            (passerTeam === 1 && bx <= PITCH.l + 8 && Math.abs(by - PITCH_CY) <= GOAL.half + 10);
-          if (pass.kind === "goal" || crossedGoalLine) {
+          // Check if ball landed in opponent goal mouth regardless of pass type
+          const inP2Goal = (passerTeam === 0 && bx >= PITCH.r - 25 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
+          const inP1Goal = (passerTeam === 1 && bx <= PITCH.l + 25 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
+
+          if (pass.kind === "goal" || inP2Goal || inP1Goal) {
             goal = passerTeam;
             R.events.push({ t, type: "goal", x: bx, y: by, team: passerTeam });
             bMode = "loose"; bvx = 0; bvy = 0;
-            bx = pass.target.x + (passerTeam === 0 ? 18 : -18); by = pass.target.y;
+            bx = passerTeam === 0 ? PITCH.r + 15 : PITCH.l - 15;
+            by = pass.target.y;
           } else if (pass.receiverId != null) {
             if (!forcedPass) this.stats[passerTeam].completed++;
             R.events.push({ t, type: "catch", x: bx, y: by, team: this.coins[pass.receiverId].team });
@@ -1025,15 +1027,27 @@ export class Engine {
         bvx *= damp; bvy *= damp;
         bx += bvx * dt; by += bvy * dt;
         if (!goal) {
-          if (bx < PITCH.l + R_BALL) {
-            if (Math.abs(by - PITCH_CY) < GOAL.half && bx < PITCH.l - 2) {
-              goal = 1; R.events.push({ t, type: "goal", x: bx, y: by, team: 1 }); bvx = 0; bvy = 0;
-            } else { bx = PITCH.l + R_BALL; bvx = Math.abs(bvx) * 0.6; }
+          // Left Goal (Player 1's goal - Player 2 scores here)
+          if (bx <= PITCH.l + R_BALL) {
+            if (Math.abs(by - PITCH_CY) <= GOAL.half + 8) {
+              goal = 1; // Goal for Player 2!
+              R.events.push({ t, type: "goal", x: PITCH.l - 12, y: by, team: 1 });
+              bvx = 0; bvy = 0; bx = PITCH.l - 12;
+            } else {
+              bx = PITCH.l + R_BALL;
+              bvx = Math.abs(bvx) * 0.6;
+            }
           }
-          if (bx > PITCH.r - R_BALL) {
-            if (Math.abs(by - PITCH_CY) < GOAL.half && bx > PITCH.r + 2) {
-              goal = 0; R.events.push({ t, type: "goal", x: bx, y: by, team: 0 }); bvx = 0; bvy = 0;
-            } else { bx = PITCH.r - R_BALL; bvx = -Math.abs(bvx) * 0.6; }
+          // Right Goal (Player 2's goal - Player 1 scores here)
+          if (bx >= PITCH.r - R_BALL) {
+            if (Math.abs(by - PITCH_CY) <= GOAL.half + 8) {
+              goal = 0; // Goal for Player 1!
+              R.events.push({ t, type: "goal", x: PITCH.r + 12, y: by, team: 0 });
+              bvx = 0; bvy = 0; bx = PITCH.r + 12;
+            } else {
+              bx = PITCH.r - R_BALL;
+              bvx = -Math.abs(bvx) * 0.6;
+            }
           }
           if (by < PITCH.t + R_BALL) { by = PITCH.t + R_BALL; bvy = Math.abs(bvy) * 0.6; }
           if (by > PITCH.b - R_BALL) { by = PITCH.b - R_BALL; bvy = -Math.abs(bvy) * 0.6; }
