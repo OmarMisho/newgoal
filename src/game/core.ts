@@ -141,14 +141,18 @@ export const easeInOut = (t: number) =>
 
 export function goalMouthPoint(team: Team, aim: Vec): Vec {
   const gx = team === 0 ? PITCH.r : PITCH.l;
-  const y = Math.min(Math.max(aim.y, PITCH_CY - GOAL.half + 12), PITCH_CY + GOAL.half - 12);
+  const y = Math.min(Math.max(aim.y, PITCH_CY - GOAL.half + 8), PITCH_CY + GOAL.half - 8);
   return { x: gx, y };
 }
 
 export function insideGoalMouth(p: Vec, scoringTeam: Team): boolean {
-  const gx = scoringTeam === 0 ? PITCH.r : PITCH.l;
-  const near = scoringTeam === 0 ? p.x > gx - 80 : p.x < gx + 80;
-  return near && Math.abs(p.y - PITCH_CY) <= GOAL.half + 40;
+  // Generous goal targeting zone so shots on goal are always recognized:
+  // Player 1 (team 0) attacks right goal (PITCH.r = 1184)
+  // Player 2 (team 1) attacks left goal (PITCH.l = 96)
+  const isTargetingRightGoal = scoringTeam === 0 && p.x >= PITCH.r - 120 && Math.abs(p.y - PITCH_CY) <= GOAL.half + 25;
+  const isTargetingLeftGoal = scoringTeam === 1 && p.x <= PITCH.l + 120 && Math.abs(p.y - PITCH_CY) <= GOAL.half + 25;
+
+  return isTargetingRightGoal || isTargetingLeftGoal;
 }
 
 /* ---------------- persistent settings ---------------- */

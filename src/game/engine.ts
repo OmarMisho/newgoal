@@ -687,10 +687,11 @@ export class Engine {
         this.emit(true);
         return;
       }
-      // 120s timeout -> go straight to strategy selection
+
+      // 120s timeout: preserve score, reset clock and OPEN STRATEGY POPUP
       this.tick = 0;
       this.planner = 0;
-      this.mode = "formPick";
+      this.mode = "formPick"; // Opens Strategy Selection Popup!
       this.modeUntil = this.time + FORM_TIME;
       this.setupIdleField(0);
       this.bannerId++;
@@ -984,15 +985,15 @@ export class Engine {
             bMode = "held"; bHolder = cutBy;
           }
         } else if (arrive) {
-          // Check if ball landed in opponent goal mouth regardless of pass type
-          const inP2Goal = (passerTeam === 0 && bx >= PITCH.r - 25 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
-          const inP1Goal = (passerTeam === 1 && bx <= PITCH.l + 25 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
+          // If the ball reached Player 2's goal line (Right) or Player 1's goal line (Left):
+          const inP2Goal = (passerTeam === 0 && bx >= PITCH.r - 20 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
+          const inP1Goal = (passerTeam === 1 && bx <= PITCH.l + 20 && Math.abs(by - PITCH_CY) <= GOAL.half + 15);
 
           if (pass.kind === "goal" || inP2Goal || inP1Goal) {
             goal = passerTeam;
             R.events.push({ t, type: "goal", x: bx, y: by, team: passerTeam });
             bMode = "loose"; bvx = 0; bvy = 0;
-            bx = passerTeam === 0 ? PITCH.r + 15 : PITCH.l - 15;
+            bx = passerTeam === 0 ? PITCH.r + 16 : PITCH.l - 16;
             by = pass.target.y;
           } else if (pass.receiverId != null) {
             if (!forcedPass) this.stats[passerTeam].completed++;
@@ -1027,26 +1028,24 @@ export class Engine {
         bvx *= damp; bvy *= damp;
         bx += bvx * dt; by += bvy * dt;
         if (!goal) {
-          // Left Goal (Player 1's goal - Player 2 scores here)
+          // Left Goal (Player 1's goal - Player 2 scores)
           if (bx <= PITCH.l + R_BALL) {
             if (Math.abs(by - PITCH_CY) <= GOAL.half + 8) {
-              goal = 1; // Goal for Player 2!
-              R.events.push({ t, type: "goal", x: PITCH.l - 12, y: by, team: 1 });
-              bvx = 0; bvy = 0; bx = PITCH.l - 12;
+              goal = 1;
+              R.events.push({ t, type: "goal", x: PITCH.l - 10, y: by, team: 1 });
+              bvx = 0; bvy = 0; bx = PITCH.l - 10;
             } else {
-              bx = PITCH.l + R_BALL;
-              bvx = Math.abs(bvx) * 0.6;
+              bx = PITCH.l + R_BALL; bvx = Math.abs(bvx) * 0.6;
             }
           }
-          // Right Goal (Player 2's goal - Player 1 scores here)
+          // Right Goal (Player 2's goal - Player 1 scores)
           if (bx >= PITCH.r - R_BALL) {
             if (Math.abs(by - PITCH_CY) <= GOAL.half + 8) {
-              goal = 0; // Goal for Player 1!
-              R.events.push({ t, type: "goal", x: PITCH.r + 12, y: by, team: 0 });
-              bvx = 0; bvy = 0; bx = PITCH.r + 12;
+              goal = 0;
+              R.events.push({ t, type: "goal", x: PITCH.r + 10, y: by, team: 0 });
+              bvx = 0; bvy = 0; bx = PITCH.r + 10;
             } else {
-              bx = PITCH.r - R_BALL;
-              bvx = -Math.abs(bvx) * 0.6;
+              bx = PITCH.r - R_BALL; bvx = -Math.abs(bvx) * 0.6;
             }
           }
           if (by < PITCH.t + R_BALL) { by = PITCH.t + R_BALL; bvy = Math.abs(bvy) * 0.6; }
@@ -1390,9 +1389,11 @@ export class Engine {
       return;
     }
 
+    // Goal scored: preserve score, reset clock and OPEN STRATEGY POPUP
     this.tick = 0;
+    this.plans = [emptyPlan(), emptyPlan()];
     this.planner = 0;
-    this.mode = "formPick";
+    this.mode = "formPick"; // Opens Strategy Selection Popup!
     this.modeUntil = this.time + FORM_TIME;
     this.setupIdleField(0);
     this.bannerId++;
