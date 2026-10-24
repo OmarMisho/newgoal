@@ -104,6 +104,7 @@ export class Engine {
   private handoffNext: "form" | "plan" = "plan";
   private winner: Team | null = null;
   private goalTeam: Team | null = null;
+  private lastGoalTeam: Team | null = null;
   private bannerId = 0;
   private howtoFrom: Mode = "title";
 
@@ -649,8 +650,16 @@ export class Engine {
     this.round++;
     this.tick = 0;
     this.plans = [emptyPlan(), emptyPlan()];
+
+    // Reposition all coins to the newly chosen formation slots
     this.placeFormations();
-    const holderTeam: Team = ((this.round - 1) % 2) as Team; // round 1 -> player 1
+
+    // Conceding team kicks off; if no goal, alternate
+    const holderTeam: Team = this.lastGoalTeam != null
+      ? ((1 - this.lastGoalTeam) as Team)
+      : (((this.round - 1) % 2) as Team);
+    this.lastGoalTeam = null;
+
     const holder = this.centerCoin(holderTeam);
     this.ball.mode = "held";
     this.ball.holderId = holder;
@@ -678,15 +687,13 @@ export class Engine {
         this.emit(true);
         return;
       }
-      this.mode = "roundEnd";
-      this.modeUntil = this.time + 2.5;
+      // 120s timeout -> go straight to strategy selection
+      this.tick = 0;
+      this.planner = 0;
+      this.mode = "formPick";
+      this.modeUntil = this.time + FORM_TIME;
+      this.setupIdleField(0);
       this.bannerId++;
-      sfx.whistle();
-      // Preserve score, reset positions and ball for next cycle
-      this.placeFormations();
-      this.ball.mode = "loose";
-      this.ball.holderId = null;
-      this.ball.x = PITCH_CX; this.ball.y = PITCH_CY;
     } else {
       // every segment: player 1 plots first, then player 2, then both execute
       this.planner = 0;
@@ -1365,27 +1372,32 @@ export class Engine {
       this.emit(true);
       return;
     }
-    // RULE: a goal restarts the 120s round clock
+
+    // Record scorer so conceding team gets kickoff
+    this.lastGoalTeam = gt;
     this.tick = 0;
     this.plans = [emptyPlan(), emptyPlan()];
-    this.placeFormations();
-    const conceded: Team = (1 - (gt ?? 0)) as Team;
-    const holder = this.centerCoin(conceded);
-    this.ball.mode = "held";
-    this.ball.holderId = holder;
-    this.syncBallToHolder();
+
+    // DIRECTLY open Strategy / Formation selection popup
+    this.planner = 0;
+    this.mode = "formPick";
+    this.modeUntil = this.time + FORM_TIME;
+    this.setupIdleField(0);
+    this.bannerId++;
+
     if (this.net.active && this.net.isHost) {
-      // tell the guest to rebuild the identical kickoff layout before planning
-      this.planner = 0;
-      this.startPlan();
       this.net.send({
-        t: "phase", kind: "plan", tick: 0, reset: true, holderTeam: conceded, holderId: holder,
-        deadline: Date.now() + PLAN_TIME * 1000, scores: this.scores, forms: this.forms, flags: this.flags,
+        t: "phase",
+        kind: "form",
+        fresh: false,
+        round: this.round + 1,
+        deadline: Date.now() + FORM_TIME * 1000,
+        scores: this.scores,
+        forms: this.forms,
+        flags: this.flags,
       });
-      this.emit(true);
-      return;
     }
-    this.nextSegment();
+    this.emit(true);
   }
 
   /* ---------------- update ---------------- */

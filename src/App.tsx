@@ -416,8 +416,8 @@ export default function App() {
             </div>
           </div>
         )}
-        <div className="relative flex-1 min-h-0 w-full h-full flex items-center justify-center mt-56 sm:mt-60 px-1 py-0">
-          <canvas ref={canvasRef} className="game-canvas w-full h-full" style={{ maxHeight: 'calc(100dvh - 130px)' }} />
+        <div className="relative flex-1 min-h-0 w-full h-full flex items-center justify-center pt-[102px] pb-[28px] px-2">
+          <canvas ref={canvasRef} className="game-canvas w-full h-full object-contain" />
         </div>
         {inMatch && (
           <div className="safe-area absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
