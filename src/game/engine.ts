@@ -966,21 +966,21 @@ export class Engine {
         bvx *= damp; bvy *= damp;
         bx += bvx * dt; by += bvy * dt;
         if (!goal) {
-          if (bx <= PITCH.l + R_BALL) {
-            if (Math.abs(by - PITCH_CY) <= GOAL.half + 18) {
+          if (bx <= PITCH.l + 2 || (bx < PITCH.l + 40 && Math.abs(by - PITCH_CY) <= GOAL.half + 15)) {
+            if (Math.abs(by - PITCH_CY) <= GOAL.half + 20) {
               goal = 1;
-              R.events.push({ t, type: "goal", x: PITCH.l - 12, y: by, team: 1 });
-              bvx = 0; bvy = 0; bx = PITCH.l - 12;
-            } else {
+              R.events.push({ t, type: "goal", x: PITCH.l - 10, y: by, team: 1 });
+              bvx = 0; bvy = 0; bx = PITCH.l - 10;
+            } else if (bx <= PITCH.l + R_BALL) {
               bx = PITCH.l + R_BALL; bvx = Math.abs(bvx) * 0.6;
             }
           }
-          if (bx >= PITCH.r - R_BALL) {
-            if (Math.abs(by - PITCH_CY) <= GOAL.half + 18) {
+          if (bx >= PITCH.r - 2 || (bx > PITCH.r - 40 && Math.abs(by - PITCH_CY) <= GOAL.half + 15)) {
+            if (Math.abs(by - PITCH_CY) <= GOAL.half + 20) {
               goal = 0;
-              R.events.push({ t, type: "goal", x: PITCH.r + 12, y: by, team: 0 });
-              bvx = 0; bvy = 0; bx = PITCH.r + 12;
-            } else {
+              R.events.push({ t, type: "goal", x: PITCH.r + 10, y: by, team: 0 });
+              bvx = 0; bvy = 0; bx = PITCH.r + 10;
+            } else if (bx >= PITCH.r - R_BALL) {
               bx = PITCH.r - R_BALL; bvx = -Math.abs(bvx) * 0.6;
             }
           }
